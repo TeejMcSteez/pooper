@@ -3,6 +3,7 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime, time
 from typing import Counter, NamedTuple
 
 import matplotlib.pyplot as plt
@@ -19,7 +20,7 @@ pattern = re.compile(
 
 class NGINX_Line(NamedTuple):
     ip: str
-    timestamp: str
+    timestamp: datetime
     method: str
     path: str
     status: str
@@ -42,7 +43,7 @@ def parse_nginx_line(line: str):
     if m := pattern.match(line):
         return NGINX_Line(
             ip=m["ip"],
-            timestamp=m["timestamp"],
+            timestamp=datetime.strptime(m["timestamp"], "%d/%b/%Y:%H:%M:%S %z"),
             method=m["method"] or "",
             path=m["path"] or "",
             status=m["status"],
