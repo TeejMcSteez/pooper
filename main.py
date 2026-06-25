@@ -86,6 +86,18 @@ def vectorize_global_status_codes(codes: list[str]) -> dict[str, float]:
     return {ep: count / total for ep, count in code_counts.items()}
 
 
+def get_paths_from_timestamp(
+    data: list[NGINX_Line], after: datetime, before: datetime
+) -> list[str]:
+    return [line.path for line in data if after <= line.timestamp <= before]
+
+
+def get_status_from_timestamp(
+    data: list[NGINX_Line], after: datetime, before: datetime
+) -> list[str]:
+    return [line.status for line in data if after <= line.timestamp <= before]
+
+
 # Builds vector from given client paths and all clients path frequency
 def build_ip_vector_from_paths(
     ip_paths: list[str], global_freq: dict[str, float]
