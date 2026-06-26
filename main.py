@@ -72,14 +72,14 @@ def analyze_NGINX_ip_data(lines: list[str]) -> defaultdict[str, IP_Data]:
     return ip_data
 
 
-# Turns given path list into a frequency set
+# Empirical PMF: p(endpoint) = count(endpoint) / N
 def vectorize_global_paths(paths: list[str]):
     endpoint_counts = Counter(paths)
     total = sum(endpoint_counts.values())
     return {ep: count / total for ep, count in endpoint_counts.items()}
 
 
-# Turns given status codes into a frequency set
+# Empirical PMF: p(status) = count(status) / N
 def vectorize_global_status_codes(codes: list[str]) -> dict[str, float]:
     code_counts = Counter(codes)
     total = sum(code_counts.values())
@@ -114,7 +114,9 @@ def get_status_from_delta(data: list[NGINX_Line], delta: timedelta) -> list[str]
     ]
 
 
-# Builds vector from given client paths and all clients path frequency
+# deviation[i] = p_ip(i) - p_global(i), scaled by log confidence weight
+# confidence = log(1+n) / log(1+100), clamped to [0,1] — shrinks sparse IPs toward zero
+# final vector: dev * confidence  (low-traffic IPs get pulled toward origin)
 def build_ip_vector_from_paths(
     ip_paths: list[str], global_freq: dict[str, float]
 ) -> numpy.ndarray:
@@ -123,25 +125,23 @@ def build_ip_vector_from_paths(
     ip_counts = Counter(ip_paths)
     ip_freq = {ep: ip_counts.get(ep, 0) / total for ep in vocab}
 
+    # dev[i] = p_ip(i) - p_global(i)
     raw_dev = numpy.array([ip_freq[ep] - global_freq[ep] for ep in vocab])
 
-    # confidence weight — shrink deviation toward zero for low volume IPs
-    confidence = numpy.log1p(total) / numpy.log1p(
-        100
-    )  # normalize against reasonable max (100%)
-    confidence = min(confidence, 1.0)
+    # log(1+n) / log(1+100) in [0,1]
+    confidence = min(numpy.log1p(total) / numpy.log1p(100), 1.0)
 
     return raw_dev * confidence
 
 
-# Builds vector from given client status codes and all client status code frequencies
+# deviation[i] = p_ip(i) - p_global(i), no confidence weighting
 def build_ip_vector_from_status_codes(
     ip_codes: list[str], global_freq: dict[str, float]
 ) -> numpy.ndarray:
-    pass
     codes = list(global_freq.keys())
     total = len(ip_codes) or 1
     status_counts = Counter(ip_codes)
+    # dev[i] = p_ip(i) - p_global(i)
     code_freq = {ep: status_counts.get(ep, 0) / total for ep in codes}
     return numpy.array([code_freq[ep] - global_freq[ep] for ep in codes])
 
@@ -203,5 +203,6 @@ for entry, data in ip_data.items():
     status_vec = build_ip_vector_from_status_codes(
         list(data.status_codes.elements()), global_freq=global_status_freq
     )
+    # L2 norm: ||dev||_2 = sqrt(sum(dev_i^2)) — scalar anomaly score
     path_deviations.append(float(numpy.linalg.norm(path_vec)))
     status_deviations.append(float(numpy.linalg.norm(status_vec)))
