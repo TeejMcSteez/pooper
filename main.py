@@ -3,7 +3,7 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from typing import Counter, NamedTuple
 
 import matplotlib.pyplot as plt
@@ -229,15 +229,55 @@ global_path_freq = vectorize_global_paths(paths=paths)
 # Comparing against specific codes shows deviation from intended codes (or simulated ones)
 global_status_freq = vectorize_global_status_codes(codes=statuses)
 
-path_deviations = []
-status_deviations = []
+ips = list(ip_data.keys())
+raw_scores = []  # (n_ips, 8): global_path, global_status, hour_path, hour_status, day_path, day_status, week_path, week_status
+
 for entry, data in ip_data.items():
-    path_vec = build_ip_vector_from_paths(
-        list(data.paths.elements()), global_freq=global_path_freq
+    global_path_vec = build_ip_vector_from_paths(
+        list(data.paths.elements()), global_path_freq
     )
-    status_vec = build_ip_vector_from_status_codes(
-        list(data.status_codes.elements()), global_freq=global_status_freq
+    global_status_vec = build_ip_vector_from_status_codes(
+        list(data.status_codes.elements()), global_status_freq
     )
-    # L2 norm: ||dev||_2 = sqrt(sum(dev_i^2)) — scalar anomaly score
-    path_deviations.append(float(numpy.linalg.norm(path_vec)))
-    status_deviations.append(float(numpy.linalg.norm(status_vec)))
+
+    hour_path_vec = build_ip_vector_from_paths(
+        get_paths_from_delta(parsed_lines, timedelta(hours=1)), global_path_freq
+    )
+    hour_status_vec = build_ip_vector_from_status_codes(
+        get_status_from_delta(parsed_lines, timedelta(hours=1)), global_status_freq
+    )
+    day_path_vec = build_ip_vector_from_paths(
+        get_paths_from_delta(parsed_lines, timedelta(days=1)), global_path_freq
+    )
+    day_status_vec = build_ip_vector_from_status_codes(
+        get_status_from_delta(parsed_lines, timedelta(days=1)), global_status_freq
+    )
+    week_path_vec = build_ip_vector_from_paths(
+        get_paths_from_delta(parsed_lines, timedelta(weeks=1)), global_path_freq
+    )
+    week_status_vec = build_ip_vector_from_status_codes(
+        get_status_from_delta(parsed_lines, timedelta(weeks=1)), global_status_freq
+    )
+
+    raw_scores.append(
+        [
+            numpy.linalg.norm(global_path_vec),
+            numpy.linalg.norm(global_status_vec),
+            numpy.linalg.norm(hour_path_vec),
+            numpy.linalg.norm(hour_status_vec),
+            numpy.linalg.norm(day_path_vec),
+            numpy.linalg.norm(day_status_vec),
+            numpy.linalg.norm(week_path_vec),
+            numpy.linalg.norm(week_status_vec),
+        ]
+    )
+
+score_matrix = numpy.array(raw_scores)  # (n_ips, 8)
+z = (score_matrix - score_matrix.mean(axis=0)) / (score_matrix.std(axis=0) + 1e-9)
+anomaly_scores = numpy.linalg.norm(z, axis=1)  # one scalar per IP
+
+path_deviations = score_matrix[:, 0].tolist()
+status_deviations = score_matrix[:, 1].tolist()
+
+plot_path_status_deviations(path_deviations, status_deviations)
+report(ip_data)
