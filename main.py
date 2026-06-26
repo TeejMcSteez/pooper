@@ -181,11 +181,7 @@ unique_ips = {p.ip for line in lines if (p := parse_nginx_line(line))}
 # Grabs all unqiue paths in each line
 unique_paths = {p.path for line in lines if (p := parse_nginx_line(line))}
 
-parsed_lines = [parse_nginx_line(line) for line in lines]
-if parsed_lines is None:
-    print("failed to parse lines")
-    exit(1)
-
+parsed_lines = [p for line in lines if (p := parse_nginx_line(line))]
 # Gets IP data from file lines
 ip_data = analyze_NGINX_ip_data(lines=lines)
 # Grabs all unique status codes
