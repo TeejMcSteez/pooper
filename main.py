@@ -40,6 +40,9 @@ class IP_Data:
 
 # Parse line using regex pattern
 def parse_nginx_line(line: str):
+    """
+    Parse line using regex pattern
+    """
     if m := pattern.match(line):
         return NGINX_Line(
             ip=m["ip"],
@@ -52,8 +55,10 @@ def parse_nginx_line(line: str):
         )
 
 
-# Analyzed log data returning the IP and used data
 def analyze_NGINX_ip_data(lines: list[str]) -> defaultdict[str, IP_Data]:
+    """
+    Analyzed log data returning the IP and used data
+    """
     ip_data = defaultdict(IP_Data)
 
     for line in lines:
@@ -72,15 +77,19 @@ def analyze_NGINX_ip_data(lines: list[str]) -> defaultdict[str, IP_Data]:
     return ip_data
 
 
-# Empirical PMF: p(endpoint) = count(endpoint) / N
 def vectorize_global_paths(paths: list[str]):
+    """
+    Empirical PMF: p(endpoint) = count(endpoint) / N
+    """
     endpoint_counts = Counter(paths)
     total = sum(endpoint_counts.values())
     return {ep: count / total for ep, count in endpoint_counts.items()}
 
 
-# Empirical PMF: p(status) = count(status) / N
 def vectorize_global_status_codes(codes: list[str]) -> dict[str, float]:
+    """
+    Empirical PMF: p(status) = count(status) / N
+    """
     code_counts = Counter(codes)
     total = sum(code_counts.values())
     return {ep: count / total for ep, count in code_counts.items()}
@@ -89,16 +98,25 @@ def vectorize_global_status_codes(codes: list[str]) -> dict[str, float]:
 def get_paths_from_timestamp(
     data: list[NGINX_Line], after: datetime, before: datetime
 ) -> list[str]:
+    """
+    Returns paths between given datetimes
+    """
     return [line.path for line in data if after <= line.timestamp <= before]
 
 
 def get_status_from_timestamp(
     data: list[NGINX_Line], after: datetime, before: datetime
 ) -> list[str]:
+    """
+    Returns status codes between given datetimes
+    """
     return [line.status for line in data if after <= line.timestamp <= before]
 
 
 def get_paths_from_delta(data: list[NGINX_Line], delta: timedelta) -> list[str]:
+    """
+    Return paths within a given time delta (between x hours, days, etc.)
+    """
     return [
         line.path
         for line in data
@@ -107,6 +125,9 @@ def get_paths_from_delta(data: list[NGINX_Line], delta: timedelta) -> list[str]:
 
 
 def get_status_from_delta(data: list[NGINX_Line], delta: timedelta) -> list[str]:
+    """
+    Return status codes within a given time delta (between x hours, days, etc.)
+    """
     return [
         line.status
         for line in data
@@ -114,12 +135,16 @@ def get_status_from_delta(data: list[NGINX_Line], delta: timedelta) -> list[str]
     ]
 
 
-# deviation[i] = p_ip(i) - p_global(i), scaled by log confidence weight
-# confidence = log(1+n) / log(1+100), clamped to [0,1] — shrinks sparse IPs toward zero
-# final vector: dev * confidence  (low-traffic IPs get pulled toward origin)
 def build_ip_vector_from_paths(
     ip_paths: list[str], global_freq: dict[str, float]
 ) -> numpy.ndarray:
+    """
+    deviation[i] = p_ip(i) - p_global(i), scaled by log confidence weight
+
+    confidence = log(1+n) / log(1+100), clamped to [0,1] — shrinks sparse IPs toward zero
+
+    final vector: dev * confidence  (low-traffic IPs get pulled toward origin)
+    """
     vocab = list(global_freq.keys())
     total = len(ip_paths) or 1
     ip_counts = Counter(ip_paths)
@@ -134,10 +159,12 @@ def build_ip_vector_from_paths(
     return raw_dev * confidence
 
 
-# deviation[i] = p_ip(i) - p_global(i), no confidence weighting
 def build_ip_vector_from_status_codes(
     ip_codes: list[str], global_freq: dict[str, float]
 ) -> numpy.ndarray:
+    """
+    deviation[i] = p_ip(i) - p_global(i), no confidence weighting
+    """
     codes = list(global_freq.keys())
     total = len(ip_codes) or 1
     status_counts = Counter(ip_codes)
@@ -147,6 +174,9 @@ def build_ip_vector_from_status_codes(
 
 
 def plot_path_status_deviations(path_dev, status_dev):
+    """
+    Display 2D standard deviations (path_deviation x, status_deviation y)
+    """
     fig, ax = plt.subplots()
     ax.scatter(path_dev, status_dev, alpha=0.4, s=10)
     ax.set_xlabel("path deviation (L2)")
@@ -157,6 +187,9 @@ def plot_path_status_deviations(path_dev, status_dev):
 
 
 def report(ip_data: defaultdict[str, IP_Data]):
+    """
+    Prints IP data
+    """
     ips = list(ip_data.keys())
 
     for i, (ip, path_dev, status_dev) in enumerate(
