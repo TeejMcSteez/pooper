@@ -168,6 +168,8 @@ ip_data = analyze_NGINX_ip_data(lines=lines)
 statuses = [c for data in ip_data.values() for c in data.status_codes.elements()]
 # Collect all paths from each IP
 paths = [path for data in ip_data.values() for path in data.paths.elements()]
+# Collect all paths for the past hour
+test_past_paths = get_paths_from_delta(parsed_lines, timedelta(days=3))
 # Used for frequency comparison (can be select endpoint or compared against all other IP's)
 global_path_freq = vectorize_global_paths(paths=paths)
 global_status_freq = vectorize_global_status_codes(codes=statuses)
