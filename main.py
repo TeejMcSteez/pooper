@@ -146,6 +146,30 @@ def build_ip_vector_from_status_codes(
     return numpy.array([code_freq[ep] - global_freq[ep] for ep in codes])
 
 
+def plot_path_status_deviations(path_dev, status_dev):
+    fig, ax = plt.subplots()
+    ax.scatter(path_dev, status_dev, alpha=0.4, s=10)
+    ax.set_xlabel("path deviation (L2)")
+    ax.set_ylabel("status code deviation (L2)")
+    ax.set_title("Path vs status code deviation per IP")
+    plt.tight_layout()
+    plt.show()
+
+
+def report(ip_data: defaultdict[str, IP_Data]):
+    ips = list(ip_data.keys())
+
+    for i, (ip, path_dev, status_dev) in enumerate(
+        zip(ips, path_deviations, status_deviations)
+    ):
+        if path_dev > 0.5 or status_dev > 1.1:
+            print(f"{ip:20s}  path={path_dev:.3f}  status={status_dev:.3f}")
+            print(f"  paths:   {dict(ip_data[ip].paths)}")
+            print(f"  codes:   {dict(ip_data[ip].status_codes)}")
+            print(f"  agents:  {ip_data[ip].user_agents}")
+            print()
+
+
 # filepath check
 if len(sys.argv) < 2:
     print("specify filename")
@@ -185,23 +209,3 @@ for entry, data in ip_data.items():
     )
     path_deviations.append(float(numpy.linalg.norm(path_vec)))
     status_deviations.append(float(numpy.linalg.norm(status_vec)))
-
-fig, ax = plt.subplots()
-ax.scatter(path_deviations, status_deviations, alpha=0.4, s=10)
-ax.set_xlabel("path deviation (L2)")
-ax.set_ylabel("status code deviation (L2)")
-ax.set_title("Path vs status code deviation per IP")
-plt.tight_layout()
-plt.show()
-
-ips = list(ip_data.keys())
-
-for i, (ip, path_dev, status_dev) in enumerate(
-    zip(ips, path_deviations, status_deviations)
-):
-    if path_dev > 0.5 or status_dev > 1.1:
-        print(f"{ip:20s}  path={path_dev:.3f}  status={status_dev:.3f}")
-        print(f"  paths:   {dict(ip_data[ip].paths)}")
-        print(f"  codes:   {dict(ip_data[ip].status_codes)}")
-        print(f"  agents:  {ip_data[ip].user_agents}")
-        print()
