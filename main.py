@@ -162,12 +162,11 @@ def report(ip_data: defaultdict[str, IP_Data]):
     for i, (ip, path_dev, status_dev) in enumerate(
         zip(ips, path_deviations, status_deviations)
     ):
-        if path_dev > 0.5 or status_dev > 1.1:
-            print(f"{ip:20s}  path={path_dev:.3f}  status={status_dev:.3f}")
-            print(f"  paths:   {dict(ip_data[ip].paths)}")
-            print(f"  codes:   {dict(ip_data[ip].status_codes)}")
-            print(f"  agents:  {ip_data[ip].user_agents}")
-            print()
+        print(f"{ip:20s}  path={path_dev:.3f}  status={status_dev:.3f}")
+        print(f"  paths:   {dict(ip_data[ip].paths)}")
+        print(f"  codes:   {dict(ip_data[ip].status_codes)}")
+        print(f"  agents:  {ip_data[ip].user_agents}")
+        print()
 
 
 # filepath check
