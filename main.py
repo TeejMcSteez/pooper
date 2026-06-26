@@ -202,6 +202,62 @@ def report(ip_data: defaultdict[str, IP_Data]):
         print()
 
 
+# TODO: Update to be more general, build raw scores from path and status vectors based on what is passed not requiring global vars
+def build_raw_scores(data: defaultdict[str, IP_Data]):
+    raw_scores = []  # (n_ips, 8): global_path, global_status, hour_path, hour_status, day_path, day_status, week_path, week_status
+
+    for entry, ip_data in data.items():
+        global_path_vec = build_ip_vector_from_paths(
+            list(ip_data.paths.elements()), global_path_freq
+        )
+        global_status_vec = build_ip_vector_from_status_codes(
+            list(ip_data.status_codes.elements()), global_status_freq
+        )
+
+        hour_path_vec = build_ip_vector_from_paths(
+            get_paths_from_delta(parsed_lines, timedelta(hours=1)), global_path_freq
+        )
+        hour_status_vec = build_ip_vector_from_status_codes(
+            get_status_from_delta(parsed_lines, timedelta(hours=1)), global_status_freq
+        )
+        day_path_vec = build_ip_vector_from_paths(
+            get_paths_from_delta(parsed_lines, timedelta(days=1)), global_path_freq
+        )
+        day_status_vec = build_ip_vector_from_status_codes(
+            get_status_from_delta(parsed_lines, timedelta(days=1)), global_status_freq
+        )
+        week_path_vec = build_ip_vector_from_paths(
+            get_paths_from_delta(parsed_lines, timedelta(weeks=1)), global_path_freq
+        )
+        week_status_vec = build_ip_vector_from_status_codes(
+            get_status_from_delta(parsed_lines, timedelta(weeks=1)), global_status_freq
+        )
+
+        raw_scores.append(
+            [
+                numpy.linalg.norm(global_path_vec),
+                numpy.linalg.norm(global_status_vec),
+                numpy.linalg.norm(hour_path_vec),
+                numpy.linalg.norm(hour_status_vec),
+                numpy.linalg.norm(day_path_vec),
+                numpy.linalg.norm(day_status_vec),
+                numpy.linalg.norm(week_path_vec),
+                numpy.linalg.norm(week_status_vec),
+            ]
+        )
+
+    return raw_scores
+
+
+def build_z_score(score_matrix: ndarray):
+    """
+    Calculate z-score from score matrix
+    """
+    return (score_matrix - score_matrix.mean(axis=0)) / (
+        score_matrix.std(axis=0) + 1e-9
+    )
+
+
 # filepath check
 if len(sys.argv) < 2:
     print("specify filename")
