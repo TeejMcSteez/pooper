@@ -187,8 +187,13 @@ ip_data = analyze_NGINX_ip_data(lines=lines)
 statuses = [c for data in ip_data.values() for c in data.status_codes.elements()]
 # Collect all paths from each IP
 paths = [path for data in ip_data.values() for path in data.paths.elements()]
-# Used for frequency comparison (can be select endpoint or compared against all other IP's)
+# Used for frequency comparison (can be select endpoints or compared against all other IP's)
+# Comparing against all other paths derives deviations within the data
+# Comparing against specific paths shows deviation from intended paths (or simulated ones)
 global_path_freq = vectorize_global_paths(paths=paths)
+# Used for frequnecy comparison (can be select status codes or compared against all other status codes)
+# Comparing against all other status codes derives deviations within the data
+# Comparing against specific codes shows deviation from intended codes (or simulated ones)
 global_status_freq = vectorize_global_status_codes(codes=statuses)
 
 path_deviations = []
