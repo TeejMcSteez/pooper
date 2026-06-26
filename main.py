@@ -165,7 +165,7 @@ if parsed_lines is None:
 # Gets IP data from file lines
 ip_data = analyze_NGINX_ip_data(lines=lines)
 # Grabs all unique status codes
-statuses = [c for data in ip_data.values() for c in data.status_codes]
+statuses = [c for data in ip_data.values() for c in data.status_codes.elements()]
 # Collect all paths from each IP
 paths = [path for data in ip_data.values() for path in data.paths.elements()]
 # Used for frequency comparison (can be select endpoint or compared against all other IP's)
