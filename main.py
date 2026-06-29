@@ -78,7 +78,7 @@ def analyze_NGINX_ip_data(lines: list[str]) -> defaultdict[str, IP_Data]:
     return ip_data
 
 
-def vectorize_global_paths(paths: list[str]):
+def build_global_paths_vector(paths: list[str]):
     """
     Empirical PMF: p(endpoint) = count(endpoint) / N
     """
@@ -87,7 +87,7 @@ def vectorize_global_paths(paths: list[str]):
     return {ep: count / total for ep, count in endpoint_counts.items()}
 
 
-def vectorize_global_status_codes(codes: list[str]) -> dict[str, float]:
+def build_global_status_codes_vector(codes: list[str]) -> dict[str, float]:
     """
     Empirical PMF: p(status) = count(status) / N
     """
@@ -96,7 +96,7 @@ def vectorize_global_status_codes(codes: list[str]) -> dict[str, float]:
     return {ep: count / total for ep, count in code_counts.items()}
 
 
-def vectorize_global_user_agents(agents: list[str]) -> dict[str, float]:
+def build_global_user_agents_vector(agents: list[str]) -> dict[str, float]:
     """
     Empirical PMF: p(agents) = count(agents) / N
     """
@@ -145,7 +145,7 @@ def get_status_from_delta(data: list[NGINX_Line], delta: timedelta) -> list[str]
     ]
 
 
-def build_ip_vector_from_paths(
+def build_path_vector(
     ip_paths: list[str], global_freq: dict[str, float]
 ) -> numpy.ndarray:
     """
@@ -169,7 +169,7 @@ def build_ip_vector_from_paths(
     return raw_dev * confidence
 
 
-def build_ip_vector_from_status_codes(
+def build_status_code_vector(
     ip_codes: list[str], global_freq: dict[str, float]
 ) -> numpy.ndarray:
     """
@@ -183,7 +183,7 @@ def build_ip_vector_from_status_codes(
     return numpy.array([code_freq[ep] - global_freq[ep] for ep in codes])
 
 
-def build_ip_vector_from_agents(
+def build_agents_vector(
     ip_agents: list[str], global_freq: dict[str, float]
 ) -> numpy.ndarray:
     agents = list(global_freq.keys())
@@ -288,26 +288,26 @@ agents = [agents for data in ip_data.values() for agents in data.user_agents]
 # Used for frequency comparison (can be select endpoints or compared against all other IP's)
 # Comparing against all other paths derives deviations within the data
 # Comparing against specific paths shows deviation from intended paths (or simulated ones)
-global_path_freq = vectorize_global_paths(paths=paths)
+global_path_freq = build_global_paths_vector(paths=paths)
 # Used for frequnecy comparison (can be select status codes or compared against all other status codes)
 # Comparing against all other status codes derives deviations within the data
 # Comparing against specific codes shows deviation from intended codes (or simulated ones)
-global_status_freq = vectorize_global_status_codes(codes=statuses)
+global_status_freq = build_global_status_codes_vector(codes=statuses)
 # Used for frequency comparison (can be select user agents or compared against all other user agents)
 # Comparing against all other user agents derives deviations within the data
 # Comparing against specific agents shows deviation from intended agents (or simulated ones)
-global_agent_freq = vectorize_global_user_agents(agents=agents)
+global_agent_freq = build_global_user_agents_vector(agents=agents)
 
 ips = list(ip_data.keys())
 
 distributions: list[Distribution] = [
-    (lambda d: list(d.paths.elements()), build_ip_vector_from_paths, global_path_freq),
+    (lambda d: list(d.paths.elements()), build_path_vector, global_path_freq),
     (
         lambda d: list(d.status_codes.elements()),
-        build_ip_vector_from_status_codes,
+        build_status_code_vector,
         global_status_freq,
     ),
-    (lambda d: list(d.user_agents), build_ip_vector_from_agents, global_agent_freq),
+    (lambda d: list(d.user_agents), build_agents_vector, global_agent_freq),
 ]
 
 raw_scores = build_raw_scores(ip_data, distributions)
