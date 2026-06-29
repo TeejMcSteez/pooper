@@ -290,9 +290,15 @@ global_agent_freq = vectorize_global_user_agents(agents=agents)
 
 ips = list(ip_data.keys())
 
-raw_scores = build_raw_scores(ip_data)
+distributions: list[Distribution] = [
+    (lambda d: list(d.paths.elements()), build_ip_vector_from_paths, global_path_freq),
+    (lambda d: list(d.status_codes.elements()), build_ip_vector_from_status_codes, global_status_freq),
+    (lambda d: list(d.user_agents), build_ip_vector_from_agents, global_agent_freq),
+]
 
-score_matrix = numpy.array(raw_scores)  # (n_ips, 8)
+raw_scores = build_raw_scores(ip_data, distributions)
+
+score_matrix = numpy.array(raw_scores)  # (n_ips, n_distributions)
 z = build_z_score(score_matrix=score_matrix)
 anomaly_scores = numpy.linalg.norm(z, axis=1)  # one scalar per IP
 
