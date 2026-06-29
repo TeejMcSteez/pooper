@@ -191,7 +191,10 @@ def build_ip_vector_from_agents(
     agents_count = Counter(ip_agents)
 
     agent_freq = {ep: agents_count.get(ep, 0) / total for ep in agents}
-    return numpy.array([agent_freq[ep] - global_freq[ep] for ep in agents])
+    raw_dev = numpy.array([agent_freq[ep] - global_freq[ep] for ep in agents])
+
+    confidence = min(numpy.log1p(total) / numpy.log1p(100), 1.0)
+    return raw_dev * confidence
 
 
 def plot_2d_deviations(x: list[float], y: list[float], x_label: str, y_label: str):
