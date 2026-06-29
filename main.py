@@ -235,38 +235,18 @@ def build_raw_scores(data: defaultdict[str, IP_Data]):
             list(ip_data.status_codes.elements()), global_status_freq
         )
 
-        hour_path_vec = build_ip_vector_from_paths(
-            get_paths_from_delta(parsed_lines, timedelta(hours=1)), global_path_freq
-        )
-        hour_status_vec = build_ip_vector_from_status_codes(
-            get_status_from_delta(parsed_lines, timedelta(hours=1)), global_status_freq
-        )
-        day_path_vec = build_ip_vector_from_paths(
-            get_paths_from_delta(parsed_lines, timedelta(days=1)), global_path_freq
-        )
-        day_status_vec = build_ip_vector_from_status_codes(
-            get_status_from_delta(parsed_lines, timedelta(days=1)), global_status_freq
-        )
-        week_path_vec = build_ip_vector_from_paths(
-            get_paths_from_delta(parsed_lines, timedelta(weeks=1)), global_path_freq
-        )
-        week_status_vec = build_ip_vector_from_status_codes(
-            get_status_from_delta(parsed_lines, timedelta(weeks=1)), global_status_freq
-        )
-
-        raw_scores.append(
-            [
-                numpy.linalg.norm(global_path_vec),
-                numpy.linalg.norm(global_status_vec),
-                numpy.linalg.norm(hour_path_vec),
-                numpy.linalg.norm(hour_status_vec),
-                numpy.linalg.norm(day_path_vec),
-                numpy.linalg.norm(day_status_vec),
-                numpy.linalg.norm(week_path_vec),
-                numpy.linalg.norm(week_status_vec),
-            ]
-        )
-
+def build_raw_scores(
+    data: defaultdict[str, IP_Data],
+    distributions: list[Distribution],
+) -> list[list[float]]:
+    """Returns (n_ips, n_distributions) matrix of L2 deviation norms."""
+    raw_scores = []
+    for _, ip_data in data.items():
+        row = [
+            float(numpy.linalg.norm(build_vec(extract(ip_data), global_freq)))
+            for extract, build_vec, global_freq in distributions
+        ]
+        raw_scores.append(row)
     return raw_scores
 
 
