@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Counter, NamedTuple
+from typing import Callable, Counter, NamedTuple
 
 import matplotlib.pyplot as plt
 import numpy
@@ -194,46 +194,53 @@ def build_ip_vector_from_agents(
     return numpy.array([agent_freq[ep] - global_freq[ep] for ep in agents])
 
 
-def plot_path_status_deviations(path_dev, status_dev):
-    """
-    Display 2D standard deviations (path_deviation x, status_deviation y)
-    """
-    fig, ax = plt.subplots()
-    ax.scatter(path_dev, status_dev, alpha=0.4, s=10)
-    ax.set_xlabel("path deviation (L2)")
-    ax.set_ylabel("status code deviation (L2)")
-    ax.set_title("Path vs status code deviation per IP")
+def plot_2d_deviations(x: list[float], y: list[float], x_label: str, y_label: str):
+    _, ax = plt.subplots()
+    ax.scatter(x, y, alpha=0.4, s=10)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_title(f"{x_label} vs {y_label} per IP")
     plt.tight_layout()
     plt.show()
 
 
-def report(ip_data: defaultdict[str, IP_Data]):
-    """
-    Prints IP data
-    """
-    ips = list(ip_data.keys())
+def plot_3d_deviations(
+    score_matrix: numpy.ndarray,
+    anomaly_scores: numpy.ndarray,
+    labels: list[str],
+):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
 
-    for i, (ip, path_dev, status_dev) in enumerate(
-        zip(ips, path_deviations, status_deviations)
-    ):
-        print(f"{ip:20s}  path={path_dev:.3f}  status={status_dev:.3f}")
-        print(f"  paths:   {dict(ip_data[ip].paths)}")
-        print(f"  codes:   {dict(ip_data[ip].status_codes)}")
-        print(f"  agents:  {ip_data[ip].user_agents}")
-        print()
+    sc = ax.scatter(
+        score_matrix[:, 0].tolist(),
+        score_matrix[:, 1].tolist(),
+        score_matrix[:, 2].tolist(),
+        c=anomaly_scores.tolist(),
+        cmap="hot",
+        alpha=0.6,
+        s=10,
+    )
+
+    ax.set_xlabel(labels[0])
+    ax.set_ylabel(labels[1])
+    ax.set_zlabel(labels[2])
+    ax.set_title("IP anomaly score across all distributions")
+    fig.colorbar(sc, label="anomaly score (z-norm)")
+    plt.tight_layout()
+    plt.show()
 
 
-# TODO: Update to be more general, build raw scores from path and status vectors based on what is passed not requiring global vars
-def build_raw_scores(data: defaultdict[str, IP_Data]):
-    raw_scores = []  # (n_ips, 8): global_path, global_status, hour_path, hour_status, day_path, day_status, week_path, week_status
+# Each Distribution is (extractor, vector_builder, global_freq):
+#   extractor:      IP_Data -> list[str]        — pulls the raw values for this IP
+#   vector_builder: (list[str], dict) -> ndarray — computes deviation vector
+#   global_freq:    dict[str, float]             — the baseline PMF to deviate from
+Distribution = tuple[
+    Callable[[IP_Data], list[str]],
+    Callable[[list[str], dict[str, float]], numpy.ndarray],
+    dict[str, float],
+]
 
-    for entry, ip_data in data.items():
-        global_path_vec = build_ip_vector_from_paths(
-            list(ip_data.paths.elements()), global_path_freq
-        )
-        global_status_vec = build_ip_vector_from_status_codes(
-            list(ip_data.status_codes.elements()), global_status_freq
-        )
 
 def build_raw_scores(
     data: defaultdict[str, IP_Data],
@@ -292,18 +299,45 @@ ips = list(ip_data.keys())
 
 distributions: list[Distribution] = [
     (lambda d: list(d.paths.elements()), build_ip_vector_from_paths, global_path_freq),
-    (lambda d: list(d.status_codes.elements()), build_ip_vector_from_status_codes, global_status_freq),
+    (
+        lambda d: list(d.status_codes.elements()),
+        build_ip_vector_from_status_codes,
+        global_status_freq,
+    ),
     (lambda d: list(d.user_agents), build_ip_vector_from_agents, global_agent_freq),
 ]
 
 raw_scores = build_raw_scores(ip_data, distributions)
 
 score_matrix = numpy.array(raw_scores)  # (n_ips, n_distributions)
+
 z = build_z_score(score_matrix=score_matrix)
+
 anomaly_scores = numpy.linalg.norm(z, axis=1)  # one scalar per IP
 
-path_deviations = score_matrix[:, 0].tolist()
-status_deviations = score_matrix[:, 1].tolist()
+plot_2d_deviations(
+    score_matrix[:, 0].tolist(),
+    score_matrix[:, 1].tolist(),
+    x_label="path deviation (L2)",
+    y_label="status deviation (L2)",
+)
 
-plot_path_status_deviations(path_deviations, status_deviations)
-report(ip_data)
+plot_2d_deviations(
+    score_matrix[:, 1].tolist(),
+    score_matrix[:, 2].tolist(),
+    x_label="status deviation (L2)",
+    y_label="user agent deviation (L2)",
+)
+
+plot_2d_deviations(
+    score_matrix[:, 0].tolist(),
+    score_matrix[:, 2].tolist(),
+    x_label="path deviation (L2)",
+    y_label="user agent deviation (L2)",
+)
+
+plot_3d_deviations(
+    score_matrix,
+    anomaly_scores,
+    labels=["path deviation", "status deviation", "agent deviation"],
+)
