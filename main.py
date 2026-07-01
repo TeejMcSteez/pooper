@@ -152,13 +152,33 @@ def build_raw_scores(
     return raw_scores
 
 
-def build_z_score(score_matrix: ndarray):
+def build_z_score(score_matrix: ndarray) -> ndarray:
     """
     Calculate z-score from score matrix
     """
     return (score_matrix - score_matrix.mean(axis=0)) / (
         score_matrix.std(axis=0) + 1e-9
     )
+
+
+def build_covariance_matrix(score_matrix: ndarray) -> ndarray:
+    """
+    Σ of shape (n_distributions, n_distributions) from score_matrix (n_ips, n_distributions).
+    Captures how each distribution's L2 norms co-vary across all IPs.
+    """
+    return numpy.cov(score_matrix.T)
+
+
+def mahalanobis_distance(score_matrix: ndarray, cov: ndarray) -> ndarray:
+    """
+    Per-IP Mahalanobis distance: sqrt((x - μ)^T Σ^-1 (x - μ))
+    Unlike z-score L2, this accounts for correlations between distributions.
+    Returns shape (n_ips,).
+    """
+    mu = score_matrix.mean(axis=0)
+    cov_inv = numpy.linalg.pinv(cov)
+    delta = score_matrix - mu
+    return numpy.sqrt(numpy.einsum("ij,jk,ik->i", delta, cov_inv, delta))
 
 
 # filepath check
@@ -210,29 +230,32 @@ z = build_z_score(score_matrix=score_matrix)
 
 anomaly_scores = numpy.linalg.norm(z, axis=1)  # one scalar per IP
 
-plot_2d_deviations(
-    score_matrix[:, 0].tolist(),
-    score_matrix[:, 1].tolist(),
-    x_label="path deviation (L2)",
-    y_label="status deviation (L2)",
-)
+cov = build_covariance_matrix(score_matrix)
+mahal_scores = mahalanobis_distance(score_matrix, cov)
 
-plot_2d_deviations(
-    score_matrix[:, 1].tolist(),
-    score_matrix[:, 2].tolist(),
-    x_label="status deviation (L2)",
-    y_label="user agent deviation (L2)",
-)
+# plot_2d_deviations(
+#     score_matrix[:, 0].tolist(),
+#     score_matrix[:, 1].tolist(),
+#     x_label="path deviation (L2)",
+#     y_label="status deviation (L2)",
+# )
 
-plot_2d_deviations(
-    score_matrix[:, 0].tolist(),
-    score_matrix[:, 2].tolist(),
-    x_label="path deviation (L2)",
-    y_label="user agent deviation (L2)",
-)
+# plot_2d_deviations(
+#     score_matrix[:, 1].tolist(),
+#     score_matrix[:, 2].tolist(),
+#     x_label="status deviation (L2)",
+#     y_label="user agent deviation (L2)",
+# )
+
+# plot_2d_deviations(
+#     score_matrix[:, 0].tolist(),
+#     score_matrix[:, 2].tolist(),
+#     x_label="path deviation (L2)",
+#     y_label="user agent deviation (L2)",
+# )
 
 plot_3d_deviations(
     score_matrix,
-    anomaly_scores,
+    mahal_scores,
     labels=["path deviation", "status deviation", "agent deviation"],
 )
